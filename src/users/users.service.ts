@@ -95,4 +95,11 @@ export class UsersService {
       throw new BadRequestException(`Could not remove user: ${error.message}`);
     }
   }
+
+  async findFieldsForAuth(email: string): Promise<User | null> {
+    return await this.userModel
+      .findOne({ email })
+      .select(['email', 'role', 'password'])
+      .exec();
+  }
 }
