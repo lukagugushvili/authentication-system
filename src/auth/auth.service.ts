@@ -10,6 +10,7 @@ import { LoginRes } from './auth-response/login-res';
 import * as bcrypt from 'bcrypt';
 import { RegisterRes } from './auth-response/register-res';
 import { JwtService } from '@nestjs/jwt';
+import { User } from 'src/users/schema/user.schema';
 
 @Injectable()
 export class AuthService {
@@ -65,5 +66,15 @@ export class AuthService {
       console.error(`Error logging in user: ${error.message}`);
       throw new BadRequestException(`Could not log in user: ${error.message}`);
     }
+  }
+
+  async validateUser(email: string, password: string): Promise<User | null> {
+    const user = await this.userService.findFieldsForAuth(email);
+    if (!user) return null;
+
+    const arePasswordsEqual = await bcrypt.compare(password, user.password);
+    if (!arePasswordsEqual) return null;
+
+    return user;
   }
 }
