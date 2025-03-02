@@ -7,12 +7,19 @@ import {
   Delete,
   BadGatewayException,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schema/user.schema';
 import mongoose from 'mongoose';
+import { Roles } from 'src/decorators/roles.decorator';
+import { UserRoles } from 'src/enums/roles-enum';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { CurrentUser } from 'src/decorators/current-user.decorator';
+import { IReqUserProfile } from 'src/interfaces/req-user';
 
 @Controller('users')
 export class UsersController {
@@ -24,34 +31,62 @@ export class UsersController {
   }
 
   @Get()
+  @UseGuards(RolesGuard, JwtAuthGuard)
+  @Roles(UserRoles.ADMIN)
   async findAll(): Promise<User[]> {
     return this.usersService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<User> {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN, UserRoles.USER)
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: IReqUserProfile,
+  ): Promise<User> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new BadGatewayException('Invalid mongo ID');
+    }
+
+    if (id !== user.userId && user.role === 'admin') {
+      return this.usersService.findOne(user.userId);
     }
 
     return this.usersService.findOne(id);
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRoles.ADMIN, UserRoles.USER)
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() user: IReqUserProfile,
   ): Promise<User> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new BadGatewayException('Invalid mongo ID');
     }
+
+    if (id !== user.userId && user.role === 'admin') {
+      return this.usersService.update(user.userId, updateUserDto);
+    }
+
     return this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<User> {
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRoles.ADMIN, UserRoles.USER)
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: IReqUserProfile,
+  ): Promise<User> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new BadGatewayException('Invalid mongo ID');
+    }
+
+    if (id !== user.userId && user.role === 'admin') {
+      return this.usersService.remove(user.userId);
     }
 
     return this.usersService.remove(id);
