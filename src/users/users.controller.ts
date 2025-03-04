@@ -8,6 +8,7 @@ import {
   BadGatewayException,
   Put,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -48,8 +49,8 @@ export class UsersController {
       throw new BadGatewayException('Invalid mongo ID');
     }
 
-    if (id !== user.userId && user.role === 'admin') {
-      return this.usersService.findOne(user.userId);
+    if (user.role !== 'admin' && id !== user.userId) {
+      throw new ForbiddenException('You are not allowed to access this user');
     }
 
     return this.usersService.findOne(id);
@@ -67,8 +68,8 @@ export class UsersController {
       throw new BadGatewayException('Invalid mongo ID');
     }
 
-    if (id !== user.userId && user.role === 'admin') {
-      return this.usersService.update(user.userId, updateUserDto);
+    if (user.role !== 'admin' && id !== user.userId) {
+      throw new ForbiddenException('You are not allowed to access this user');
     }
 
     return this.usersService.update(id, updateUserDto);
@@ -85,8 +86,8 @@ export class UsersController {
       throw new BadGatewayException('Invalid mongo ID');
     }
 
-    if (id !== user.userId && user.role === 'admin') {
-      return this.usersService.remove(user.userId);
+    if (user.role !== 'admin' && id !== user.userId) {
+      throw new ForbiddenException('You are not allowed to access this user');
     }
 
     return this.usersService.remove(id);

@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { RegisterRes } from './auth-response/register-res';
 import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/users/schema/user.schema';
+import { GenerateTokensRes } from './auth-response/generate-tokens-res';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,10 @@ export class AuthService {
 
       const salt_rounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
       const hashedPassword = await bcrypt.hash(password, salt_rounds);
+
+      if (!hashedPassword) {
+        throw new BadRequestException('Error hashing password');
+      }
 
       const registerIn = await this.userService.create({
         ...registerDto,
@@ -59,9 +64,13 @@ export class AuthService {
       }
 
       const payload = { sub: user.id, email: user.email, role: user.role };
-      const access_token = this.jwtService.sign(payload);
+      const tokens = await this.generateTokens(user.id, user.email, user.role);
+      await this.updateToken(user.id, tokens.refresh_token);
 
-      return { message: 'Logged in successfully', access_token };
+      return {
+        message: 'Logged in successfully',
+        tokens,
+      };
     } catch (error) {
       console.error(`Error logging in user: ${error.message}`);
       throw new BadRequestException(`Could not log in user: ${error.message}`);
@@ -76,5 +85,28 @@ export class AuthService {
     if (!arePasswordsEqual) return null;
 
     return user;
+  }
+
+  async generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+  ): Promise<GenerateTokensRes> {
+    const payload = { sub: userId, email, role };
+
+    const token = this.jwtService.sign(payload);
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.JWT_REFRESH_TOKEN_KEY,
+      expiresIn: '7d',
+    });
+
+    return { access_token: token, refresh_token: refreshToken };
+  }
+
+  async updateToken(userId: string, refreshToken: string) {
+    const rounds = Number(process.env.BCRYPT_SALT_ROUNDS) || 10;
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, rounds);
+    await this.userService.update(userId, { refreshToken: hashedRefreshToken });
   }
 }

@@ -1,4 +1,4 @@
 export class LoginRes {
   message: string;
-  access_token: string;
+  tokens: { access_token: string; refresh_token: string };
 }
